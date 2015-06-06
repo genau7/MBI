@@ -2,8 +2,8 @@
 seqRef1="GAATTC"
 seq1="GATTA"
 
-seqRef1="AACACTTTTCAAT"
-seq1="ACTTATCA"
+seqRefk="AACACTTTTCAAT"
+seqk="ACTTATCA"
 
 seqRef="CCATCGCCATCG"
 seq="GCATCGGC"
@@ -25,8 +25,6 @@ def getTuplesList():
 	
 def createDiagonalDict():
 	#TODO: verify that
-	rows=len(seq)
-	cols=len(seqRef)
 	diagonalNum=rows+cols-2*k+1
 	diagonalIndexDict={}
 	for row in range(0, rows-k+1):
@@ -36,40 +34,56 @@ def createDiagonalDict():
 	return diagonalIndexDict
 	
 def calcDiagonalSums():
-	#tuples, tuplesDict=getTuplesList()
-	#dotsMatrix = [[" " for col in range(cols)] for row in range(rows)]
 	cols=len(seqRef)
 	rows=len(seq)
 	diagonalSum=createDiagonalDict()
 	
 	scoreMatrix=[[0 for col in range(cols)] for row in range(rows)]
 
-	
 	#TODO boundaries ??(+1)
 	for row in range(0, rows-k+1):
 		tuple=seq[row:row+k]
 		for col in range(0, cols-k+1):
-			#print"\ttuple=seqRef[col:cols+k]:", tuple==seqRef[col:col+k], seqRef[col:col+k], col
 			if(tuple==seqRef[col:col+k]):
 				print "incrementing diagonal ", col
 				offset=row-col
 				diagonalSum[offset]+=1
-				#dotsMatrix[row][col]="o"
 				scoreMatrix[row][col]=1
 				print "  ",tuple, "found at ", row, col
 	return diagonalSum, scoreMatrix
 
 def matrixWithTopDiagonals(diagonals, scoreMatrix):
 	#get keys for the top ten diagonal sums
-	keysForBestDiagonals=sorted(diagonals, key=diagonals.__getitem__, reverse=True)[0:11]
+	
+	#remove entries with score=0
+	filteredDiagonals=dict(diagonals)
+	for key in diagonals:
+		if diagonals[key]==0:
+			del filteredDiagonals[key]			
+			
+	keysForBestDiagonals=sorted(filteredDiagonals, key=filteredDiagonals.__getitem__, reverse=True)
+	if len(keysForBestDiagonals)>10:
+		keysForBestDiagonals=keysForBestDiagonals[0:11]
+
+	
+	#get updated diagonals dictionary
+	bestDiagonals=dict(filteredDiagonals)
+	print"---then---"
+	print bestDiagonals
+	for diagKey in filteredDiagonals.keys():
+		if diagKey not in keysForBestDiagonals:
+			del bestDiagonals[diagKey]
+	print "----now---"
+	print bestDiagonals
+	
 	for row in range(0,len(scoreMatrix)):
 		for col in range(0, len(scoreMatrix[0])):
 			if scoreMatrix[row][col]==1:
-				#check if it lays on oneof the top 10 diagonals
+				#check if it lays on one of the top 10 diagonals
 				diagKey=row-col
 				scoreMatrix[row][col]=0 if diagKey not in keysForBestDiagonals else 1
 				
-	return scoreMatrix
+	return scoreMatrix, bestDiagonals
 	"""
 	print "best diags:"
 	print keysForBestDiagonals
@@ -77,15 +91,67 @@ def matrixWithTopDiagonals(diagonals, scoreMatrix):
 	for i in range (len(keysForBestDiagonals)):
 		print keysForBestDiagonals[i]"""
 	
-def rescoreRegions(scoreMatrix,blosum):
-	rows=len(scoreMatrix)
-	cols=len(scoreMatrix[0])
-	for row in range(0,rows):
-		for col in range(0, cols):
-			if(scoreMatrix[row][col]==1):
-				scoreMatrix[row][col]=blosum[(seq[row], seqRef[col])]
-	return scoreMatrix
+def rescoreRegions(scoreMatrix,blosum,bestDiagonals):
+	diagonalSums=createDiagonalDict()
+
+				
+	#iterate over diagonals and score the with blosum matrix
+	for diag in bestDiagonals:
+		offset=diag
+		firstRow=0 if diag<0 else offset
+		print "Analizing diag=", diag
+		for row in range(firstRow, rows-k-1):
+			col=row-offset
+			if(col<=cols-k+1):
+				#print "row=", row, "col=", col, "offset=", offset, seq[row], seqRef[col]
+				if(scoreMatrix[row][col]!=0):
+					newValue=blosum[(seq[row], seqRef[col])]
+					scoreMatrix[row][col]=newValue
+					diag+=newValue
+		
+	printMatrix(scoreMatrix)
+	#find subregions and trim the ones not optimal
+	for diag in bestDiagonals:
+		regionsSorted=findRegions(diag, scoreMatrix)
+		print regionsSorted
+		offset=diag
+		firstRow=0 if diag<0 else offset
+		for row in range(firstRow, rows-k+1):
+			if row not in regionsSorted[0][1]:
+				col=row-offset
+				if(col<=cols-k+1):
+					scoreMatrix[row][col]=0
+		
+	return scoreMatrix,diagonalSums
 	
+def findRegions(diag, scoreMatrix):
+	regionRows=[]
+	regions=[]
+	offset=diag
+	firstRow=0 if diag<0 else offset
+	print "Analizing diag=", diag
+	sum=0
+	print "rang=", rows-k+1
+	for row in range(firstRow, rows-k+1):
+		col=row-offset
+		#print "rangeCol=",  col
+		if(col<=cols-k+1):
+			print "row=",row, "offset=",offset,
+			if(scoreMatrix[row][col]!=0):
+				sum+=scoreMatrix[row][col]
+				regionRows.append(row)
+				if(row==rows-k and sum>0):
+					regions.append((sum, regionRows[:]))
+			else:
+				if(sum>0):
+					regions.append((sum, regionRows[:]))
+				sum=0
+				regionRows[:]=[]
+			print "col=",col, "val=",scoreMatrix[row][col],"sum=",sum
+		
+
+	return sorted(regions, key=lambda tup: tup[0], reverse=True)	
+		
 # Create an empty matrix
 def create_matrix(m, n):
     return [[0]*n for _ in xrange(m)]
@@ -269,7 +335,7 @@ def printMatrix(matrix):
 print "---------FASTA-----\n"
 rows=len(seq)
 cols=len(seqRef)
-d=readBlosum("blosum.txt")
+blosum=readBlosum("blosum.txt")
 
 print "Comparing:"
 print "Query=    ", seq, " with"
@@ -297,13 +363,13 @@ print diagonalSums
 
 	
 # 2b. identify 10 best diagonals	
-filteredScoreMatrix=matrixWithTopDiagonals(diagonalSums, scoreMatrix)
+filteredScoreMatrix,bestDiagonals=matrixWithTopDiagonals(diagonalSums, scoreMatrix)
 
 
-# 3. Rescore initial regions with a substitution score matrix
-blosum=readBlosum("blosum.txt")
-print
-scoreMatrix=rescoreRegions(scoreMatrix,blosum)
+# 3. Rescore initial regions with a substitution score matrix and get best 10 subregions
+scoreMatrix, diagonalSums =rescoreRegions(scoreMatrix,blosum, bestDiagonals)
+#Non-matching ends of the diagonal are trimmed?????
+#filteredScoreMatrix=matrixWithTopDiagonals(diagonalSums, scoreMatrix)
 printMatrix(scoreMatrix)
 print
 
