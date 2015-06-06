@@ -1,6 +1,7 @@
 
-seq1="GAATTC"
-seq2="GATTA"
+seqRef="GAATTC"
+seq="GATTA"
+penalty=-5
 
 # Create an empty matrix
 def create_matrix(m, n):
@@ -24,8 +25,7 @@ def readBlosum(fname):
 def needlemanWunsch(seqVertical, seqHorizontal, blosum, penalty):
     rows = len(seqVertical)+1 
     cols = len(seqHorizontal)+1 
-
-     
+    
     F = create_matrix(rows, cols)
  
     for i in range(0, rows):
@@ -57,29 +57,29 @@ def traceback(scoreMatrix, startPos, blosum):
     '''
 
     END, DIAG, UP, LEFT = range(4)
-    alignedSeq1 = []
-    alignedSeq2 = []
+    alignedSeq = []
+    alignedSeqRef = []
     i, j         = startPos
     step         = nextStep(scoreMatrix, i, j,blosum)
-    print i,j, step
+    
     while step != END:
         if step == DIAG:
-            alignedSeq1.append(seq1[i - 1])
-            alignedSeq2.append(seq2[j - 1])
+            alignedSeq.append(seq[i - 1])
+            alignedSeqRef.append(seqRef[j - 1])
             i -= 1
             j -= 1
         elif step == UP:
-            alignedSeq1.append(seq1[i - 1])
-            alignedSeq2.append('-')
+            alignedSeq.append(seq[i - 1])
+            alignedSeqRef.append('-')
             i -= 1
         else:
-            alignedSeq1.append('-')
-            alignedSeq2.append(seq2[j - 1])
+            alignedSeq.append('-')
+            alignedSeqRef.append(seqRef[j - 1])
             j -= 1
        
         step = nextStep(scoreMatrix, i, j,blosum)
        
-    return ''.join(reversed(alignedSeq1)), ''.join(reversed(alignedSeq2))
+    return ''.join(reversed(alignedSeq)), ''.join(reversed(alignedSeqRef))
 
 
 def nextStep(scoreMatrix, i, j, blosum):
@@ -88,7 +88,7 @@ def nextStep(scoreMatrix, i, j, blosum):
     up   = scoreMatrix[i - 1][j]
     left = scoreMatrix[i][j - 1]
 
-    similarity=blosum[(seq2[i-1], seq1[j-1])]
+    similarity=blosum[(seq[i-1], seqRef[j-1])]
 
     if(score==diag+similarity):
         return 1
@@ -97,7 +97,9 @@ def nextStep(scoreMatrix, i, j, blosum):
     if (score==left+penalty):
         return 3
 
-def createAlignmentString(alignedSeq1, alignedSeq2):
+    return 0
+
+def createAlignmentString(alignedSeq, alignedSeqRef):
     '''Construct a special string showing identities, gaps, and mismatches.
 
     This string is printed between the two aligned sequences and shows the
@@ -114,7 +116,7 @@ def createAlignmentString(alignedSeq1, alignedSeq2):
     idents, gaps, mismatches = 0, 0, 0
     alignmentString = []
     
-    for base1, base2 in zip(alignedSeq1, alignedSeq2):
+    for base1, base2 in zip(alignedSeq, alignedSeqRef):
         if base1 == base2:
             alignmentString.append('|')
             idents += 1
@@ -148,12 +150,14 @@ print "---------NW-----\n"
 d=readBlosum("blosum.txt")
 
 print "Comparing:"
-print " "+ seq1
-for l in seq2:
+print " "+ seqRef
+for l in seq:
     print l
 print
 
-matrix=needlemanWunsch(seq2,seq1, d, -5)
+matrix=needlemanWunsch(seq,seqRef, d, penalty)
 print_matrix(matrix)
-rightBottomCell=(len(seq2), len(seq1))
-seq1Aligned, seq2Aligned = traceback(matrix, rightBottomCell, d)
+rightBottomCell=(len(seq), len(seqRef))
+seqAligned, seqRefAligned = traceback(matrix, rightBottomCell, d)
+print seqRefAligned
+print seqAligned
