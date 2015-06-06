@@ -57,6 +57,24 @@ def calcDiagonalSums():
 				print "  ",tuple, "found at ", row, col
 	return diagonalSum, scoreMatrix
 
+def matrixWithTopDiagonals(diagonals, scoreMatrix):
+	#get keys for the top ten diagonal sums
+	keysForBestDiagonals=sorted(diagonals, key=diagonals.__getitem__, reverse=True)[0:11]
+	for row in range(0,len(scoreMatrix)):
+		for col in range(0, len(scoreMatrix[0])):
+			if scoreMatrix[row][col]==1:
+				#check if it lays on oneof the top 10 diagonals
+				diagKey=row-col
+				scoreMatrix[row][col]=0 if diagKey not in keysForBestDiagonals else 1
+				
+	return scoreMatrix
+	"""
+	print "best diags:"
+	print keysForBestDiagonals
+	print
+	for i in range (len(keysForBestDiagonals)):
+		print keysForBestDiagonals[i]"""
+	
 # Create an empty matrix
 def create_matrix(m, n):
     return [[0]*n for _ in xrange(m)]
@@ -208,7 +226,7 @@ def printDotMatrix(matrix):
 	for n in range(len(seqRef)):
 		print seqRef[n], 
 	print
-	#print in sequence's nukleotides and "o" if a dot should be printed
+	#print sequence's nukleotides and "o" if a dot should be printed
 	for i in range(len(seq)):
 		print seq[i],
 		for j in range(len(seqRef)):
@@ -244,16 +262,12 @@ printDotMatrix(scoreMatrix)
 	
 	
 print "diagonal sums:\n"
-for sum in diagonalSums:
-	print sum
+print diagonalSums
+
 	
 # 2b. identify 10 best diagonals	
-#get top 10 best scored diagonals;
-bestDiagonals=sorted(diagonalSums.values(), reverse=True)[0:9]
-print "best diags:"
-print bestDiagonals
-for i in range (len(bestDiagonals)):
-	print bestDiagonals[i]
+filteredScoreMatrix=matrixWithTopDiagonals(diagonalSums, scoreMatrix)
+printDotMatrix(scoreMatrix)
 #print bestDiagonals
 
 
