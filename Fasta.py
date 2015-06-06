@@ -34,26 +34,28 @@ def createDiagonalDict():
 	return diagonalIndexDict
 	
 def calcDiagonalSums():
-	tuples, tuplesDict=getTuplesList()
+	#tuples, tuplesDict=getTuplesList()
+	#dotsMatrix = [[" " for col in range(cols)] for row in range(rows)]
 	cols=len(seqRef)
 	rows=len(seq)
 	diagonalSum=createDiagonalDict()
-	dotsMatrix = [[" " for col in range(cols)] for row in range(rows)]
-	print tuples
 	
-	#TODO boundaries (+1)
+	scoreMatrix=[[0 for col in range(cols)] for row in range(rows)]
+
+	
+	#TODO boundaries ??(+1)
 	for row in range(0, rows-k+1):
 		tuple=seq[row:row+k]
-	#for tuple in tuples:
-		#print "Looking for ", tuple
 		for col in range(0, cols-k+1):
 			#print"\ttuple=seqRef[col:cols+k]:", tuple==seqRef[col:col+k], seqRef[col:col+k], col
 			if(tuple==seqRef[col:col+k]):
 				print "incrementing diagonal ", col
-				diagonalSum[row-col]+=1
-				dotsMatrix[row][col]="o"
-				print "  ",tuple, "found at ", tuplesDict[tuple], col
-	return diagonalSum, dotsMatrix
+				offset=row-col
+				diagonalSum[offset]+=1
+				#dotsMatrix[row][col]="o"
+				scoreMatrix[row][col]=1
+				print "  ",tuple, "found at ", row, col
+	return diagonalSum, scoreMatrix
 
 # Create an empty matrix
 def create_matrix(m, n):
@@ -198,7 +200,26 @@ def print_matrix(matrix):
             print('{0:>4}'.format(col)),
         print
 
-print "---------NW-----\n"
+		
+def printDotMatrix(matrix):
+	#print ref sequence's nukleotides
+	print
+	print" ",
+	for n in range(len(seqRef)):
+		print seqRef[n], 
+	print
+	#print in sequence's nukleotides and "o" if a dot should be printed
+	for i in range(len(seq)):
+		print seq[i],
+		for j in range(len(seqRef)):
+			if scoreMatrix[i][j]==1:
+				print "o",
+			else:
+				print " ",
+		print
+
+
+print "---------FASTA-----\n"
 d=readBlosum("blosum.txt")
 
 print "Comparing:"
@@ -214,20 +235,34 @@ print
 #print seqRefAligned
 #print seqAligned
 
-diagonalSum, dotsMatrix=calcDiagonalSums()
-print
-print" ",
-for n in range(len(seqRef)):
-	print seqRef[n], 
-print
-#print seqRef
-	
-for i in range(len(seq)):
-	print seq[i],
-	for j in range(len(seqRef)):
-		print dotsMatrix[i][j],
-	print
+# 1.identify common k-words between I (seq) and J(seqRef)
+# 2a. Score diagonals with k-word matches
+diagonalSums, scoreMatrix=calcDiagonalSums()
 
+#print dot mattrix
+printDotMatrix(scoreMatrix)
+	
+	
 print "diagonal sums:\n"
-print diagonalSum
+for sum in diagonalSums:
+	print sum
+	
+# 2b. identify 10 best diagonals	
+#get top 10 best scored diagonals;
+bestDiagonals=sorted(diagonalSums.values(), reverse=True)[0:9]
+print "best diags:"
+print bestDiagonals
+for i in range (len(bestDiagonals)):
+	print bestDiagonals[i]
+#print bestDiagonals
+
+
+# 3. Rescore initial regions with a substitution score matrix
+
+
+# 4. Join initial regions using gaps, penalise for gaps
+
+# 5. Perform dynamic programming to find final alignments
+
+
 	
