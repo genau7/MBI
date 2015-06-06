@@ -65,10 +65,10 @@ mismatch = -3
 penalty      = -4
 seq02= "GAAAGAT" #horizontal
 seq01 = "GATGAA"#vertical
-seq2= "GGCTCAATCA"
-seq1= "ACCTAAGG"
-#seq1 = 'AGCACACA'
-#seq2 = 'ACACACTA'
+seqRef= "GGCTCAATCA"
+seq= "ACCTAAGG"
+#seq = 'AGCACACA'
+#seqRef = 'ACACACTA'
 seq02 = "FTFTALILLAVAV"
 seq01 = "FTALLLAAV"
 
@@ -110,7 +110,7 @@ def calcScore(matrix, i, j):
 
     The score is based on the up, left, and upper-left neighbors.
     '''
-    similarity=match if seq1[i-1]==seq2[j-1] else mismatch
+    similarity=match if seq[i-1]==seqRef[j-1] else mismatch
   
     diagScore = matrix[i - 1][j - 1] + similarity
     upScore   = matrix[i - 1][j] + penalty
@@ -132,29 +132,29 @@ def traceback(scoreMatrix, startPos):
     '''
 
     END, DIAG, UP, LEFT = range(4)
-    alignedSeq1 = []
-    alignedSeq2 = []
+    alignedSeq = []
+    alignedSeqRef = []
     i, j         = startPos
     step         = nextStep(scoreMatrix, i, j)
     
     while step != END:
         if step == DIAG:
-            alignedSeq1.append(seq1[i - 1])
-            alignedSeq2.append(seq2[j - 1])
+            alignedSeq.append(seq[i - 1])
+            alignedSeqRef.append(seqRef[j - 1])
             i -= 1
             j -= 1
         elif step == UP:
-            alignedSeq1.append(seq1[i - 1])
-            alignedSeq2.append('-')
+            alignedSeq.append(seq[i - 1])
+            alignedSeqRef.append('-')
             i -= 1
         else:
-            alignedSeq1.append('-')
-            alignedSeq2.append(seq2[j - 1])
+            alignedSeq.append('-')
+            alignedSeqRef.append(seqRef[j - 1])
             j -= 1
        
         step = nextStep(scoreMatrix, i, j)
        
-    return ''.join(reversed(alignedSeq1)), ''.join(reversed(alignedSeq2))
+    return ''.join(reversed(alignedSeq)), ''.join(reversed(alignedSeqRef))
 
 
 def nextStep(scoreMatrix, i, j):
@@ -163,7 +163,7 @@ def nextStep(scoreMatrix, i, j):
     up   = scoreMatrix[i - 1][j]
     left = scoreMatrix[i][j - 1]
 
-    similarity=match if seq1[i-1]==seq2[j-1] else mismatch
+    similarity=match if seq[i-1]==seqRef[j-1] else mismatch
 
     if(score==diag+similarity):
         return 1
@@ -184,7 +184,7 @@ def nextStep(scoreMatrix, i, j):
         raise ValueError('invalid move during traceback')"""
 
 
-def createAlignmentString(alignedSeq1, alignedSeq2):
+def createAlignmentString(alignedSeq, alignedSeqRef):
     '''Construct a special string showing identities, gaps, and mismatches.
 
     This string is printed between the two aligned sequences and shows the
@@ -200,7 +200,7 @@ def createAlignmentString(alignedSeq1, alignedSeq2):
     # concatenation.
     idents, gaps, mismatches = 0, 0, 0
     alignmentString = []
-    for base1, base2 in zip(alignedSeq1, alignedSeq2):
+    for base1, base2 in zip(alignedSeq, alignedSeqRef):
         if base1 == base2:
             alignmentString.append('|')
             idents += 1
@@ -246,11 +246,11 @@ class ScoreMatrixTest(unittest.TestCase):
                         [0,  1,  4,  5,  8,  8, 11, 10,  9],  # C
                         [0,  2,  3,  6,  7, 10, 10, 10, 12]]  # A
 
-        global seq1, seq2
-        seq1 = 'AGCACACA'
-        seq2 = 'ACACACTA'
-        rows = len(seq1) + 1
-        cols = len(seq2) + 1
+        global seq, seqRef
+        seq = 'AGCACACA'
+        seqRef = 'ACACACTA'
+        rows = len(seq) + 1
+        cols = len(seqRef) + 1
 
         matrixToTestest, bestPos = createScoreMatrix(rows, cols)
         self.assertEqual(knownMatrix, matrixToTest)
@@ -267,8 +267,8 @@ except ValueError as err:
 
 # The scoring matrix contains an extra row and column for the gap (-), hence
 # the +1 here.
-rows = len(seq1) + 1
-cols = len(seq2) + 1
+rows = len(seq) + 1
+cols = len(seqRef) + 1
 
 # Initialize the scoring matrix.
 scoreMatrix, bestPos = createScoreMatrix(rows, cols)
@@ -277,20 +277,20 @@ print_matrix(scoreMatrix)
 
 # Traceback. Find the optimal path through the scoring matrix. This path
 # corresponds to the optimal local sequence alignment.
-seq1Aligned, seq2Aligned = traceback(scoreMatrix, bestPos)
-assert len(seq1Aligned) == len(seq2Aligned), 'aligned strings are not the same size'
+seqAligned, seqRefAligned = traceback(scoreMatrix, bestPos)
+assert len(seqAligned) == len(seqRefAligned), 'aligned strings are not the same size'
 
 # Pretty print the results. The printing follows the format of BLAST results
 # as closely as possible.
-alignmentStr, idents, gaps, mismatches = createAlignmentString(seq1Aligned, seq2Aligned)
-alength = len(seq1Aligned)
+alignmentStr, idents, gaps, mismatches = createAlignmentString(seqAligned, seqRefAligned)
+alength = len(seqAligned)
 
 
 print "***************stats**************"
-print "seq1=", seq1, "rows=len(seq1), seq1 is vertical and string in"
-print "seq2=", seq2,"cols=len(seq2), seq2 is horizontal and string ref"
-print "seq1Aligned=",seq1Aligned
-print "seq2Aligned=",seq2Aligned
+print "seq=", seq, "rows=len(seq), seq is vertical and string in"
+print "seqRef=", seqRef,"cols=len(seqRef), seqRef is horizontal and string ref"
+print "seqAligned=",seqAligned
+print "seqRefAligned=",seqRefAligned
 print "*********************************"
 
 print
@@ -298,11 +298,11 @@ print(' Identities = {0}/{1} ({2:.1%}), Gaps = {3}/{4} ({5:.1%})'.format(idents,
       alength, idents / alength, gaps, alength, gaps / alength))
 print
 for i in range(0, alength, 60):
-    seq1Slice = seq1Aligned[i:i+60]
-    print('Query  {0:<4}  {1}  {2:<4}'.format(i + 1, seq1Slice, i + len(seq1Slice)))
-    print('             {0}'.format(alignmentStr[i:i+60]))
-    seq2Slice = seq2Aligned[i:i+60]
-    print('Sbjct  {0:<4}  {1}  {2:<4}'.format(i + 1, seq2Slice, i + len(seq2Slice)))
+    seqSlice = seqAligned[i:i+60]
+    print('Query      {0:<4}  {1}  {2:<4}'.format(i + 1, seqSlice, i + len(seqSlice)))
+    print('                 {0}'.format(alignmentStr[i:i+60]))
+    seqRefAlignedSlice = seqRefAligned[i:i+60]
+    print('Reference  {0:<4}  {1}  {2:<4}'.format(i + 1, seqRefAlignedSlice, i + len(seqRefAlignedSlice)))
     print()
 
 strG = str(raw_input("Genome sequence: "))
