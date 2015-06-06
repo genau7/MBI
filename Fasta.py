@@ -10,6 +10,8 @@ seq="GCATCGGC"
 
 penalty=-5
 k=2
+rows=0
+cols=0
 
 def getTuplesList():
 	tuples=set()
@@ -74,6 +76,15 @@ def matrixWithTopDiagonals(diagonals, scoreMatrix):
 	print
 	for i in range (len(keysForBestDiagonals)):
 		print keysForBestDiagonals[i]"""
+	
+def rescoreRegions(scoreMatrix,blosum):
+	rows=len(scoreMatrix)
+	cols=len(scoreMatrix[0])
+	for row in range(0,rows):
+		for col in range(0, cols):
+			if(scoreMatrix[row][col]==1):
+				scoreMatrix[row][col]=blosum[(seq[row], seqRef[col])]
+	return scoreMatrix
 	
 # Create an empty matrix
 def create_matrix(m, n):
@@ -223,28 +234,46 @@ def printDotMatrix(matrix):
 	#print ref sequence's nukleotides
 	print
 	print" ",
-	for n in range(len(seqRef)):
+	for n in range(cols):
 		print seqRef[n], 
 	print
 	#print sequence's nukleotides and "o" if a dot should be printed
-	for i in range(len(seq)):
+	for i in range(0,rows):
 		print seq[i],
-		for j in range(len(seqRef)):
+		for j in range(0,cols):
 			if scoreMatrix[i][j]==1:
 				print "o",
 			else:
 				print " ",
 		print
 
+def printMatrix(matrix):
+	#print ref sequence's nukleotides
+	print
+	print"    ",
+	for n in range(cols):
+		print seqRef[n], "  ",
+	print
+	#print sequence's nukleotides and "o" if a dot should be printed
+	i=0
+	for row in matrix:
+		print seq[i],
+		i+=1
+		for col in row:
+			if col!=0:
+				print ('{0:>4}'.format(col)),
+			else:
+				print "    ",
+		print
 
 print "---------FASTA-----\n"
+rows=len(seq)
+cols=len(seqRef)
 d=readBlosum("blosum.txt")
 
 print "Comparing:"
-print " "+ seqRef
-for l in seq:
-    print l
-print
+print "Query=    ", seq, " with"
+print "Reference=", seqRef
 
 #matrix=needlemanWunsch(seq,seqRef, d, penalty)
 #print_matrix(matrix)
@@ -260,6 +289,8 @@ diagonalSums, scoreMatrix=calcDiagonalSums()
 #print dot mattrix
 printDotMatrix(scoreMatrix)
 	
+print
+printMatrix(scoreMatrix)
 	
 print "diagonal sums:\n"
 print diagonalSums
@@ -267,11 +298,14 @@ print diagonalSums
 	
 # 2b. identify 10 best diagonals	
 filteredScoreMatrix=matrixWithTopDiagonals(diagonalSums, scoreMatrix)
-printDotMatrix(scoreMatrix)
-#print bestDiagonals
 
 
 # 3. Rescore initial regions with a substitution score matrix
+blosum=readBlosum("blosum.txt")
+print
+scoreMatrix=rescoreRegions(scoreMatrix,blosum)
+printMatrix(scoreMatrix)
+print
 
 
 # 4. Join initial regions using gaps, penalise for gaps
