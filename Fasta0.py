@@ -5,32 +5,27 @@ seq1="GATTA"
 seqRefk="AACACTTTTCAAT"
 seqk="ACTTATCA"
 
-seqRef="CCATCGCCATCGG"
-#seq="GCATCGGC"
-seq="ACATCTCCAGCG"
+seqRef="CCATCGCCATCG"
+seq="GCATCGGC"
 
 penalty=-5
 k=2
+rows=0
+cols=0
 
-
-def getTuplesList(str):
+def getTuplesList():
 	tuples=set()
 	tuplesDict={}
-	
-	for i in range(0, len(str)-k+1):
-		tuple=str[i:i+k]
-		
+	for i in range(0, len(seq)-k):
+		tuple=seq[i:i+k]
 		if tuple not in tuples:
 			tuples.add(tuple)
-			tuplesDict[tuple]=[]
-			
-		tuplesDict[tuple].append(i)
+			tuplesDict[tuple]=i
 	return tuples,tuplesDict
 	
 def createDiagonalDict():
 	#TODO: verify that
-	#diagonalNum=rows+cols-2*k+1
-
+	diagonalNum=rows+cols-2*k+1
 	diagonalIndexDict={}
 	for row in range(0, rows-k+1):
 		diagonalIndexDict[row]=0
@@ -38,138 +33,57 @@ def createDiagonalDict():
 		diagonalIndexDict[-col]=0
 	return diagonalIndexDict
 	
-def createHotspotsDict():
-	#TODO: verify that
-	#diagonalNum=rows+cols-2*k+1
-
-	diagonalIndexDict={}
-	for row in range(0, rows-k+1):
-		diagonalIndexDict[row]=[]
-	for col in range(1, cols-k+1):
-		diagonalIndexDict[-col]=[]
-	return diagonalIndexDict
+def calcDiagonalSums():
+	cols=len(seqRef)
+	rows=len(seq)
+	diagonalSum=createDiagonalDict()
 	
-def calcDiagonalSums(tuplesRef, tuplesRefDict):
-	diagonalSums=createDiagonalDict()
-	hotspotRows=createHotspotsDict()
-	#scoreMatrix=[[0 for col in range(cols)] for row in range(rows)]
-
-	for row in range(0, rows-k+1):
-		tuple=seq[row:row+k]	
-		if tuple in tuplesRef:
-			
-			for col in tuplesRefDict[tuple]:
-				offset=row-col
-				diagonalSums[offset]+=1
-				hotspotRows[offset].append(row)
-	
-	#get rid of entries with sum==0
-	answer=dict(diagonalSums)
-	for diag in diagonalSums:
-		if diagonalSums[diag]==0:
-			del answer[diag]
-			del hotspotRows[diag]
-	
-	print"-------------------"
-	print "diagonalSums="
-	print answer	
-	print "-------------------"
-	print "hotspotRows"
-	print hotspotRows
-	print"-----------------------"
-	print "tuplesRefDict (hotspotCols):"
-	print tuplesRefDict
-	return answer, hotspotRows
-
-def scoreDiagonals(diagonalSumDict, hotspotRows):
-	"""
-	In order to evaluate each diagonal run, FASTA gives each hot spot a positive score,
-	and the space between consecutive hot spots in a run is given a negative score that
-	decreases with the increasing distance. The score of the diagonal run is the sum of the
-	hot spots scores and the interspot scores. FASTA finds the 10 highest scoring diagonal
-	runs under this evaluating scheme.
-
-	"""
-	rescoredDiagonals=dict(diagonalSumDict)
-	reward=20 #this should be some kind of positive value
-	print"=============RESCORE===================="
-
-	for diag in diagonalSumDict:
-		##print "diag=",diag]
-		
-		firstRow=0 if diag<=0 else diag	
-		gapPenalty=-reward/2 #this should be some kind of negative value
-		interspotPenaltySum=0
-		sum=0
-		
-		#for each row, score the cell and update diagonalSums
-		for row in range(firstRow,rows-k+1):
-			col=row-diag
-			
-			# check if col within boundaries
-			if(col<cols):
-				hotspot=row in hotspotRows[diag]
-				
-				#if for this col there is a gap between two hotspots: 
-				#(sum>0 indicates at least 1 hotspot was found before)
-				if(hotspot==False and sum>0):
-					#sum penalties for each consecutive gap
-					interspotPenaltySum+=gapPenalty
-					
-					#make sure penalty stays a negativ value (in case there were too many consecutive gaps)
-					if(gapPenalty<0):
-						#each consecutive gap has less of a penalty
-						gapPenalty+=1
-										
-				elif hotspot:
-					#sum the reward and add the penalty for the gaps between this hotspot and the previous one
-					sum=sum+reward+interspotPenaltySum
-					
-					#since a hotspot was found, reset the interspotPenaltySum and revert to the initial gapPenalty value
-					interspotPenaltySum=0
-					gapPenalty=-reward/2
-				#print "row=", row, "sum=", sum, "gapPenalty=", interspotPenaltySum
-		sum=0
-	
-	if(len(rescoredDiagonals)>10):
-		rescoredDiagonals=getTopDiagonals(getTopDiagonals)
-	return rescoredDiagonals
-
-	
-def createMatrixForDots(diagonalSumDict, hotspotRows):
-	"""
-	helper fuction
-	"""
 	scoreMatrix=[[0 for col in range(cols)] for row in range(rows)]
-	for diag in diagonalSumDict:
-		firstRow=0 if diag<=0 else diag
-		for row in range(firstRow,rows-k+1):
-			col=row-diag
-			if(col<cols):
-				#print "row=", row, "col=", col
-				if(row in hotspotRows[diag]):
-					scoreMatrix[row][col]=1
-				else:
-					scoreMatrix[row][col]=0
-	return scoreMatrix
-def getTopDiagonals(diagonals):
+
+	#TODO boundaries ??(+1)
+	for row in range(0, rows-k+1):
+		tuple=seq[row:row+k]
+		for col in range(0, cols-k+1):
+			if(tuple==seqRef[col:col+k]):
+				print "incrementing diagonal ", col
+				offset=row-col
+				diagonalSum[offset]+=1
+				scoreMatrix[row][col]=1
+				print "  ",tuple, "found at ", row, col
+	return diagonalSum, scoreMatrix
+
+def matrixWithTopDiagonals(diagonals, scoreMatrix):
+	#get keys for the top ten diagonal sums
 	
-	#get keys for the top ten diagonal sums			
-	keysForBestDiagonals=sorted(diagonals, key=diagonals.__getitem__, reverse=True)
-	keysForBestDiagonals=keysForBestDiagonals[0:11]
+	#remove entries with score=0
+	filteredDiagonals=dict(diagonals)
+	for key in diagonals:
+		if diagonals[key]==0:
+			del filteredDiagonals[key]			
+			
+	keysForBestDiagonals=sorted(filteredDiagonals, key=filteredDiagonals.__getitem__, reverse=True)
+	if len(keysForBestDiagonals)>10:
+		keysForBestDiagonals=keysForBestDiagonals[0:11]
 
 	
 	#get updated diagonals dictionary
-	bestDiagonals=dict(diagonals)
+	bestDiagonals=dict(filteredDiagonals)
 	print"---then---"
 	print bestDiagonals
-	for diagKey in diagonals.keys():
+	for diagKey in filteredDiagonals.keys():
 		if diagKey not in keysForBestDiagonals:
 			del bestDiagonals[diagKey]
 	print "----now---"
 	print bestDiagonals
+	
+	for row in range(0,len(scoreMatrix)):
+		for col in range(0, len(scoreMatrix[0])):
+			if scoreMatrix[row][col]==1:
+				#check if it lays on one of the top 10 diagonals
+				diagKey=row-col
+				scoreMatrix[row][col]=0 if diagKey not in keysForBestDiagonals else 1
 				
-	return bestDiagonals
+	return scoreMatrix, bestDiagonals
 	"""
 	print "best diags:"
 	print keysForBestDiagonals
@@ -400,7 +314,7 @@ def printDotMatrix(matrix):
 	for i in range(0,rows):
 		print seq[i],
 		for j in range(0,cols):
-			if matrix[i][j]==1:
+			if scoreMatrix[i][j]==1:
 				print "o",
 			else:
 				print " ",
@@ -428,42 +342,11 @@ def printMatrix(matrix):
 print "---------FASTA-----\n"
 rows=len(seq)
 cols=len(seqRef)
+blosum=readBlosum("blosum.txt")
+
 print "Comparing:"
 print "Query=    ", seq, " with"
 print "Reference=", seqRef
-blosum=readBlosum("blosum.txt")#
-
-# 1.identify common k-words between I (seq) and J(seqRef)
-tuplesRef,tuplesRefDict=getTuplesList(seqRef)
-diagonalSumsDict, hotspotRows=calcDiagonalSums(tuplesRef,tuplesRefDict)
-
-
-print 
-print diagonalSumsDict
-
-matrix=createMatrixForDots(diagonalSumsDict, hotspotRows)
-printDotMatrix(matrix)
-
-# 2a. Score diagonals with k-word matches
-betsTenDiagonals=scoreDiagonals(diagonalSumsDict, hotspotRows)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-""""
-
-
-
 
 #matrix=needlemanWunsch(seq,seqRef, d, penalty)
 #print_matrix(matrix)
@@ -502,73 +385,5 @@ print
 
 # 5. Perform dynamic programming to find final alignments
 
-	"""
+
 	
-	
-	
-	
-	
-"""
-	The stages in the FASTA algorithm are as follows:
-1. We specify an integer parameter called ktup (short for k respective tuples), and we look
-for ktup-length matching substrings of the two strings. The standard recommended
-ktup values are six for DNA sequence matching and two for protein sequence matching.
-The matching ktup-length substrings are referred to as hot spots. Consecutive hot spots
-are located along the dynamic programming matrix diagonals. This stage can be done
-effciently by using a lookup table or a hash to store all the ktup-length substrings from
-one string, and then search the table with the ktup-length substrings from the other
-string.
-
-2. In this stage we wish to find the 10 best diagonal runs of hot spots in the matrix. A
-diagonal run is a sequence of nearby hot spots on the same diagonal (not necessarily
-adjacent along the diagonal, i.e., spaces between these hot spots are allowed). A run
-need not contain all the hot spots on its diagonal, and a diagonal may contain more
-than one of the 10 best runs we find.
-In order to evaluate the diagonal runs, FASTA gives each hot spot a positive score,
-and the space between consecutive hot spots in a run is given a negative score that
-decreases with the increasing distance. The score of the diagonal run is the sum of the
-hot spots scores and the interspot scores. FASTA finds the 10 highest scoring diagonal
-runs under this evaluating scheme.
-
-3. A diagonal run species a pair of aligned substrings. The alignment is composed of
-matches (the hot spots) and mismatches (from the interspot regions), but it does not
-contain any indels because it is derived from a single diagonal. We next evaluate
-the runs using an amino acid (or nucleotide) substitution matrix, and pick the best
-scoring run. The single best subalignment found in this stage is called init1. Apart
-from computing init1, a ltration is performed and we discard of the diagonal runs
-achieving relatively low scores.
-
-4. Until now we essentially did not allow any indels in the subalignments. We now try to
-combine \good" diagonal runs from close diagonals, thus achieving a subalignment with
-indels allowed. We take \good" subalignments from the previous stage (subalignments
-whose score is above some specied cuto) and attempt to combine them into a single
-larger high-scoring alignment that allows some spaces. This can be done in the following
-way:
-We construct a directed weighted graph whose vertices are the subalignments found
-in the previous stage, and the weight in each vertex is the score found in the previous
-stage of the subalignment it represents. Next, we extend an edge from vertex u to
-vertex v if the subalignment represented by v starts at a lower row than where the
-3.3. BLAST - BASIC LOCAL ALIGNMENT SEARCH TOOL 3
-subalignment represented by v ends. We give the edge a negative weight which depends
-on the number of gaps that would be created by aligning according to subalignment v
-followed by subalignment u. Essentially, FASTA then nds a maximum weight path in
-this graph. The selected alignment species a single local alignment between the two
-strings. The best alignment found in this stage is marked initn. As in the previous
-stage, we discard alignments with relatively low score.
-
-5. In this step FASTA computes an alternative local alignment score, in addition to initn. Recall that init1 denes a diagonal segment in the dynamic programming matrix. We
-consider a narrow diagonal band in the matrix, centered along this segment. We observe
-that it is highly likely that the best alignment path between the init1 substrings, lies
-within the subtable dened by the band. We assume this is the case and compute
-the optimal local alignment in this band, using the ordinary dynamic programming
-algorithm. Assuming that the best local alignment is indeed within the dened band,
-the local alignment algorithm essentially merges diagonal runs found in the previous
-stages to achieve a local alignment which may contain indels. The band width is
-dependent on the ktup choice. The best local alignment computed in this stage is
-called opt.
-
-6. In the last stage, the database sequences are ranked according to initn scores or opt
-scores, and the full dynamic programming algorithm is used to align the query sequence
-against each of the highest ranking result sequences.
-
-"""
