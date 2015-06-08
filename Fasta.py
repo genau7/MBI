@@ -9,8 +9,12 @@ seqRef="CCATCGCCATCGG"
 #seq="GCATCGGC"
 seq="ACATCTCCAGCG"
 
-penalty=-5
+
+
+#ktup lenght; should be 4,5 or 6 for DNA, preferably 6
 k=2
+# some value to filter out diagonals with lowest scores (below cutoff means low score)
+cutoff=10 
 
 
 def getTuplesList(str):
@@ -37,6 +41,12 @@ def createDiagonalDict():
 	for col in range(1, cols-k+1):
 		diagonalIndexDict[-col]=0
 	return diagonalIndexDict
+	
+def createDiagonalDictFrom(bestDiagonals):
+	newDict=dict(bestDiagonals)
+	for diag in bestDiagonals:
+		newDict[diag]=0 
+	return newDict	
 	
 def createHotspotsDict():
 	#TODO: verify that
@@ -92,10 +102,9 @@ def scoreDiagonals(diagonalSumDict, hotspotRows):
 	"""
 	rescoredDiagonals=dict(diagonalSumDict)
 	reward=20 #this should be some kind of positive value
-	print"=============RESCORE===================="
 
 	for diag in diagonalSumDict:
-		##print "diag=",diag]
+		print "diag=",diag
 		
 		firstRow=0 if diag<=0 else diag	
 		gapPenalty=-reward/2 #this should be some kind of negative value
@@ -129,16 +138,67 @@ def scoreDiagonals(diagonalSumDict, hotspotRows):
 					interspotPenaltySum=0
 					gapPenalty=-reward/2
 				#print "row=", row, "sum=", sum, "gapPenalty=", interspotPenaltySum
+		
+		rescoredDiagonals[diag]=sum
 		sum=0
 	
 	if(len(rescoredDiagonals)>10):
 		rescoredDiagonals=getTopDiagonals(getTopDiagonals)
 	return rescoredDiagonals
 
+def getTopDiagonals(diagonals):	
+	#get keys for the top ten diagonal sums			
+	keysForBestDiagonals=sorted(diagonals, key=diagonals.__getitem__, reverse=True)
+	keysForBestDiagonals=keysForBestDiagonals[0:11]
+
+	#get updated diagonals dictionary
+	bestDiagonals=dict(diagonals)
+	print"---then---"
+	print bestDiagonals
+	for diagKey in diagonals.keys():
+		if diagKey not in keysForBestDiagonals:
+			del bestDiagonals[diagKey]
+	
+	print "----now---"
+	print "best diagonals:\n", bestDiagonals
+				
+	return bestDiagonals
+	"""
+	print "best diags:"
+	print keysForBestDiagonals
+	print
+	for i in range (len(keysForBestDiagonals)):
+		print keysForBestDiagonals[i]"""	
+
+
+def rescoreDiagonals(blosum,bestDiagonals,hotspotRows):
+
+	rescoredDiagonals=createDiagonalDictFrom(bestDiagonals)
+	print rescoredDiagonals			
+	#iterate over diagonals and score the with blosum matrix
+	for diag in bestDiagonals:
+		for row in hotspotRows:
+			col=row-diag
+			rescoredDiagonals[diag]+=blosum[(seq[row], seqRef[col])]
+		
+	
+	#remove diagonals with scores below a cutoff threshold
+	bestRescoredDiagonals=dict(rescoredDiagonals)
+	
+	print rescoredDiagonals
+	
+	for diag in rescoredDiagonals:
+		if rescoredDiagonals[diag]<cutoff:
+			del bestRescoredDiagonals[diag]
+			
+	print
+	print bestRescoredDiagonals
+	return bestRescoredDiagonals
+
 	
 def createMatrixForDots(diagonalSumDict, hotspotRows):
 	"""
-	helper fuction
+	just for debugging. drawing dot matrix is unnecessary since it takes too much memory to remember all values
 	"""
 	scoreMatrix=[[0 for col in range(cols)] for row in range(rows)]
 	for diag in diagonalSumDict:
@@ -152,70 +212,7 @@ def createMatrixForDots(diagonalSumDict, hotspotRows):
 				else:
 					scoreMatrix[row][col]=0
 	return scoreMatrix
-def getTopDiagonals(diagonals):
-	
-	#get keys for the top ten diagonal sums			
-	keysForBestDiagonals=sorted(diagonals, key=diagonals.__getitem__, reverse=True)
-	keysForBestDiagonals=keysForBestDiagonals[0:11]
 
-	
-	#get updated diagonals dictionary
-	bestDiagonals=dict(diagonals)
-	print"---then---"
-	print bestDiagonals
-	for diagKey in diagonals.keys():
-		if diagKey not in keysForBestDiagonals:
-			del bestDiagonals[diagKey]
-	print "----now---"
-	print bestDiagonals
-				
-	return bestDiagonals
-	"""
-	print "best diags:"
-	print keysForBestDiagonals
-	print
-	for i in range (len(keysForBestDiagonals)):
-		print keysForBestDiagonals[i]"""
-	
-def rescoreRegions(scoreMatrix,blosum,bestDiagonals):
-
-        """ Recore the matrix using blosum matirx and trim notmatching diagonal subregions
-        !!!what should be done here?
-        - rescore only for m[i][j]!=0 for each good diagonal?
-        - rescore for each m[i][j] on each good diagonal?
-
-        """
-	diagonalSums=createDiagonalDict()
-
-				
-	#iterate over diagonals and score the with blosum matrix
-	for diag in bestDiagonals:
-		offset=diag
-		firstRow=0 if diag<0 else offset
-		print "Analizing diag=", diag
-		for row in range(firstRow, rows-k-1):
-			col=row-offset
-			if(col<=cols-k+1):
-				#print "row=", row, "col=", col, "offset=", offset, seq[row], seqRef[col]
-				if(scoreMatrix[row][col]!=0):
-					newValue=blosum[(seq[row], seqRef[col])]
-					scoreMatrix[row][col]=newValue
-					diag+=newValue
-		
-	printMatrix(scoreMatrix)
-	#find subregions and trim the ones not optimal
-	for diag in bestDiagonals:
-		regionsSorted=findRegions(diag, scoreMatrix)
-		print regionsSorted
-		offset=diag
-		firstRow=0 if diag<0 else offset
-		for row in range(firstRow, rows-k+1):
-			if row not in regionsSorted[0][1]:
-				col=row-offset
-				if(col<=cols-k+1):
-					scoreMatrix[row][col]=0
-		
-	return scoreMatrix,diagonalSums
 	
 def findRegions(diag, scoreMatrix):
 	regionRows=[]
@@ -425,6 +422,7 @@ def printMatrix(matrix):
 				print "    ",
 		print
 
+		
 print "---------FASTA-----\n"
 rows=len(seq)
 cols=len(seqRef)
@@ -434,6 +432,7 @@ print "Reference=", seqRef
 blosum=readBlosum("blosum.txt")#
 
 # 1.identify common k-words between I (seq) and J(seqRef)
+print "\n=======================================\n                STEP1\n=======================================\n"
 tuplesRef,tuplesRefDict=getTuplesList(seqRef)
 diagonalSumsDict, hotspotRows=calcDiagonalSums(tuplesRef,tuplesRefDict)
 
@@ -444,11 +443,16 @@ print diagonalSumsDict
 matrix=createMatrixForDots(diagonalSumsDict, hotspotRows)
 printDotMatrix(matrix)
 
-# 2a. Score diagonals with k-word matches
+# 2a. Score diagonals with k-word matches and identify 10 best diagonals
+print "\n=======================================\n                STEP2\n=======================================\n"
 betsTenDiagonals=scoreDiagonals(diagonalSumsDict, hotspotRows)
+print "bestTenDiagonals:\n", betsTenDiagonals
 
 
-
+# 3. Rescore initial regions with a substitution score matrix and get best 10 subregions
+print "\n=======================================\n                STEP3\n=======================================\n"
+rescoredDiagonals=rescoreDiagonals(blosum, betsTenDiagonals, hotspotRows)
+print "rescoredDiagonals:\n", rescoredDiagonals
 
 
 
